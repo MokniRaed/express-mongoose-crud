@@ -1,13 +1,18 @@
 //Import Express & Database function to connect
 const express = require("express");
+var cors = require("cors");
+
 const dbConn = require("./Config/dbConn");
 const personSchema = require("./modeles/person");
+require("dotenv").config();
+
 //Define port number and express module
-const port = 5000;
+const port = process.env.PORT;
 const app = express();
 
 //Use json to be able to read json files
 app.use(express.json());
+app.use(cors());
 dbConn();
 
 app.post("/addPerson", async (req, res) => {
@@ -43,6 +48,39 @@ app.get("/getpersonbyid/:id", async (req, res) => {
     console.log(error);
   }
 });
+app.put("/updatepersonbyid/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    personSchema
+      .findByIdAndUpdate(id, req.body,{returnOriginal: false})
+      .then((result) => {
+        result? res.status(200).send({result:"updated",data:result}):res.status(400).send({result:"not found",data:result})
+      })
+      .catch((err) => {
+        res.status(400).send(err);
+      });
+  } catch (error) {
+    res.status(500).send("cannot update person");
+    console.log(error);
+  }
+});
+
+app.delete("/deletepersonbyid/:id",async (req, res) => {
+  try {
+    const { id } = req.params;
+    personSchema
+      .findByIdAndDelete(id)
+      .then((result) => {
+       result? res.status(200).send({result:"deleted",data:result}):res.status(400).send({result:"not found",data:result})
+      })
+      .catch((err) => {
+        res.status(400).send(err);
+      });
+  } catch (error) {
+    res.status(500).send("cannot delete person");
+    console.log(error);
+  }
+})
 //Start our server
 app.listen(port, (error) => {
   error
