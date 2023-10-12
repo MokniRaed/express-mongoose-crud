@@ -2,7 +2,8 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
 var cors = require("cors");
-
+var jwt = require('jsonwebtoken');
+const isauth = require('./middlewares/isauth')
 const dbConn = require("./Config/dbConn");
 const personSchema = require("./modeles/person");
 const userSchema = require("./modeles/user");
@@ -17,15 +18,22 @@ app.use(express.json());
 app.use(cors());
 dbConn();
 
+
+
 app.post("/login", (req, res) => {
   const { email, password } = req.body;
 
   userSchema.findOne({ email }).then((chekedUser) => {
     if (chekedUser) {
       bcrypt.compare(password, chekedUser.password, function (err, result) {
-        result
-          ? res.status(200).send("connected")
-          : res.status(401).send("Check your password");
+
+        if (result) {
+          const token = jwt.sign( {id:chekedUser._id }, 'thisisakey');
+          res.status(200).send({token:token})
+        }else{
+          res.status(401).send("Check your password");
+        }
+       
       });
     } else {
       res.status(400).send("try to register first or check your email");
@@ -35,6 +43,7 @@ app.post("/login", (req, res) => {
 
 app.post("/register", (req, res) => {
   const { email, password } = req.body;
+
   userSchema.findOne({ email }).then((checkedUser) => {
     console.log(checkedUser);
     if (checkedUser) {
@@ -43,12 +52,10 @@ app.post("/register", (req, res) => {
       const newUser = new userSchema(req.body);
 
       const saltRounds = 10;
-
       bcrypt.genSalt(saltRounds, function (err, salt) {
         bcrypt.hash(password, salt, function (err, hash) {
           newUser.password = hash;
-          newUser
-            .save()
+          newUser.save()
             .then((result) => {
               res.status(200).send(result);
             })
@@ -62,7 +69,7 @@ app.post("/register", (req, res) => {
   });
 });
 
-app.post("/addPerson", async (req, res) => {
+app.post("/addPerson",isauth, async (req, res) => {
   try {
     const newPerson = new personSchema(req.body);
     newPerson.save().then((result) => {
@@ -75,7 +82,7 @@ app.post("/addPerson", async (req, res) => {
   }
 });
 
-app.get("/getPersons", async (req, res) => {
+app.get("/getPersons",isauth, async (req, res) => {
   try {
     const persons = await personSchema.find();
     res.status(200).send(persons);
@@ -85,7 +92,7 @@ app.get("/getPersons", async (req, res) => {
   }
 });
 
-app.get("/getpersonbyid/:id", async (req, res) => {
+app.get("/getpersonbyid/:id",isauth, async (req, res) => {
   try {
     const { id } = req.params;
     const person = await personSchema.findById(id);
@@ -97,7 +104,7 @@ app.get("/getpersonbyid/:id", async (req, res) => {
     console.log(error);
   }
 });
-app.put("/updatepersonbyid/:id", async (req, res) => {
+app.put("/updatepersonbyid/:id",isauth, async (req, res) => {
   try {
     const { id } = req.params;
     personSchema
