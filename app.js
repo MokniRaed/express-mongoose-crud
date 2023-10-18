@@ -1,9 +1,9 @@
 //Import Express & Database function to connect
 const express = require("express");
 const bcrypt = require("bcrypt");
-var cors = require("cors");
-var jwt = require('jsonwebtoken');
-const isauth = require('./middlewares/isauth')
+const cors = require("cors");
+const jwt = require("jsonwebtoken");
+const isauth = require("./middlewares/isauth");
 const dbConn = require("./Config/dbConn");
 const personSchema = require("./modeles/person");
 const userSchema = require("./modeles/user");
@@ -18,25 +18,36 @@ app.use(express.json());
 app.use(cors());
 dbConn();
 
-
-
 app.post("/login", (req, res) => {
   const { email, password } = req.body;
 
   userSchema.findOne({ email }).then((chekedUser) => {
     if (chekedUser) {
       bcrypt.compare(password, chekedUser.password, function (err, result) {
-
         if (result) {
-          const token = jwt.sign( {id:chekedUser._id }, 'thisisakey');
-          res.status(200).send({token:token})
-        }else{
+          const token = jwt.sign({ id: chekedUser._id }, "thisisakey");
+          res.status(200).send({ token: token });
+        } else {
           res.status(401).send("Check your password");
         }
-       
       });
     } else {
       res.status(400).send("try to register first or check your email");
+    }
+  });
+});
+
+app.get("/getUser", isauth, (req, res) => {
+  const token = req.get("Authorization");
+  console.log("token", token);
+
+  const decodedToken = jwt.verify(token, "thisisakey");
+
+  userSchema.findOne({ _id: decodedToken.id }).then((result) => {
+    if (result) {
+      res.status(200).send({ email: result.email, name: result.name });
+    } else {
+      res.status(400).send("something wrong");
     }
   });
 });
@@ -55,7 +66,8 @@ app.post("/register", (req, res) => {
       bcrypt.genSalt(saltRounds, function (err, salt) {
         bcrypt.hash(password, salt, function (err, hash) {
           newUser.password = hash;
-          newUser.save()
+          newUser
+            .save()
             .then((result) => {
               res.status(200).send(result);
             })
@@ -69,7 +81,7 @@ app.post("/register", (req, res) => {
   });
 });
 
-app.post("/addPerson",isauth, async (req, res) => {
+app.post("/addPerson", isauth, async (req, res) => {
   try {
     const newPerson = new personSchema(req.body);
     newPerson.save().then((result) => {
@@ -82,7 +94,7 @@ app.post("/addPerson",isauth, async (req, res) => {
   }
 });
 
-app.get("/getPersons",isauth, async (req, res) => {
+app.get("/getPersons", async (req, res) => {
   try {
     const persons = await personSchema.find();
     res.status(200).send(persons);
@@ -92,7 +104,7 @@ app.get("/getPersons",isauth, async (req, res) => {
   }
 });
 
-app.get("/getpersonbyid/:id",isauth, async (req, res) => {
+app.get("/getpersonbyid/:id", isauth, async (req, res) => {
   try {
     const { id } = req.params;
     const person = await personSchema.findById(id);
@@ -104,7 +116,7 @@ app.get("/getpersonbyid/:id",isauth, async (req, res) => {
     console.log(error);
   }
 });
-app.put("/updatepersonbyid/:id",isauth, async (req, res) => {
+app.put("/updatepersonbyid/:id", isauth, async (req, res) => {
   try {
     const { id } = req.params;
     personSchema
@@ -142,6 +154,7 @@ app.delete("/deletepersonbyid/:id", async (req, res) => {
     console.log(error);
   }
 });
+
 //Start our server
 app.listen(port, (error) => {
   error
